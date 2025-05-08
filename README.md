@@ -5,5 +5,21 @@ Disciplined is a designed software that allows to time-control, organize tasks, 
 
 The program is available under MIT License, which means you can take it, edit, modify, redistribute as you wish.
 
+---
+
 ### The General Knowledge of Studying and working
 Disciplined is not only a terminal - website project, it also collects information about efficient studying & working, based on the neuroscientific, psychological (among others) knowledge. You can contribute to this database of knowledge - the project is on open source.
+
+---
+
+### Compilation under linux
+
+---
+
+ > cd Disciplined/
+ > mkdir build/
+ > cd build/
+ > cmake -G"Unix Makefiles" ../
+ > make -j2
+
+---
