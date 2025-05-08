@@ -16,10 +16,12 @@ Disciplined is not only a terminal - website project, it also collects informati
 
 ---
 
- > cd Disciplined/
- > mkdir build/
- > cd build/
- > cmake -G"Unix Makefiles" ../
- > make -j2
+```bash
+cd Disciplined/
+mkdir build/
+cd build/
+cmake -G"Unix Makefiles" ../
+make -j2
+```
 
 ---
