@@ -25,3 +25,7 @@ make -j2
 ```
 
 ---
+
+### Limitations
+
+Disciplined will not replace writing by pen, or offline tools one can use to discipline oneself. Therefore, you must consider this tool as an sentient interface between you and your computer, and if you wish to do task swiftly, rather than by deliberate, slow, aware action taking. You can use Disciplined as a already-working, enough-tool for your discipline tasks.
