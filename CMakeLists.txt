@@ -12,6 +12,8 @@ file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS
 )
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/sources)
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 add_executable(Disciplined ${SOURCE_FILES})
 
 target_link_libraries(Disciplined PRIVATE CURL::libcurl)
