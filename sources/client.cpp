@@ -10,8 +10,57 @@
 
 enum class UIMode {
     InputMenu,
-    TaskOperationMenu
+    TaskOperationMenu,
+    VisualizationMenu,
+    CommandPalette
 };
+
+bool fuzzyMatch(const std::string& option, const std::string& input) {
+    auto it = option.begin();
+    for (char ch : input) {
+        ch = std::tolower(ch);
+        it = std::find_if(it, option.end(), [ch](char c) {
+            return std::tolower(c) == ch;
+        });
+        if (it == option.end()) return false;
+        ++it;
+    }
+    return true;
+}
+
+std::vector<std::string> paletteOptions = {
+    "Input Mode", "Selection", "Visualization"
+};
+std::vector<std::string> filteredPaletteOptions;
+int paletteSelectedIndex = 0;
+std::string paletteInputBuffer;
+
+void drawCommandPalette(WINDOW* stdscr) {
+    int height, width;
+    getmaxyx(stdscr, height, width);
+
+    int winHeight = 7;
+    int winWidth = width / 2;
+    int startY = height / 2 - winHeight / 2;
+    int startX = width / 2 - winWidth / 2;
+
+    WINDOW* paletteWin = newwin(winHeight, winWidth, startY, startX);
+    box(paletteWin, 0, 0);
+    mvwprintw(paletteWin, 0, 2, " Command Palette ");
+
+    for (size_t i = 0; i < filteredPaletteOptions.size(); ++i) {
+        if ((int)i == paletteSelectedIndex) {
+            wattron(paletteWin, A_REVERSE);
+        }
+        mvwprintw(paletteWin, 1 + i, 2, "%s", filteredPaletteOptions[i].c_str());
+        wattroff(paletteWin, A_REVERSE);
+    }
+
+    mvwprintw(paletteWin, winHeight - 2, 2, "> %s", paletteInputBuffer.c_str());
+
+    wrefresh(paletteWin);
+    delwin(paletteWin);
+}
 int selectedTaskIndex = 0;
 
 std::string formatDuration(double seconds) {
@@ -52,7 +101,7 @@ std::string formatDuration(double seconds) {
     return std::string(buffer);
 }
 */
-
+constexpr int CUSTOM_COLOR_START = 20; // Avoid conflict with default 0-15
 
 std::map<std::string, int> colorMap = {
     {"Default", -1},  // Use default terminal color
@@ -71,7 +120,11 @@ std::map<std::string, int> colorMap = {
     {"BrightBlue", COLOR_BLUE + 8},
     {"BrightMagenta", COLOR_MAGENTA + 8},
     {"BrightCyan", COLOR_CYAN + 8},
-    {"BrightWhite", COLOR_WHITE + 8}
+    {"BrightWhite", COLOR_WHITE + 8},
+
+    {"OrangeRed", CUSTOM_COLOR_START},      // custom RGB below
+    {"Orange", CUSTOM_COLOR_START + 1},
+    {"OrangeBright", CUSTOM_COLOR_START + 2}
 };
 int colorPairCounter = 1;
 
@@ -207,9 +260,9 @@ void addDefaultTasks() {
     };
 
     std::vector<DefaultTaskSpec> defaultSpecs = {
-        {"White", "Blue", "Programming"},
-        {"BrightGreen", "Default", "Reading"},
-        {"Default", "BrightRed", "Alert"}
+        {"Blue", "Default", "Programming XCraft"},
+        {"OrangeBright", "Default", "Meditation/(Self-)Rehearsal"},
+        {"OrangeRed", "Default", "Calisthenics"}
     };
 
     for (const auto& spec : defaultSpecs) {
@@ -234,30 +287,21 @@ void redrawTop(WINDOW* topWin) {
 
     int y = 1;
     for (const auto& task : tasks) {
-        wattron(topWin, COLOR_PAIR(task.colorPairId));
-        mvwprintw(topWin, y++, 2, "%s", task.label.c_str());
-        wattroff(topWin, COLOR_PAIR(task.colorPairId));
-
         std::shared_ptr<TimePeriod> tp = tasksTimer.GetTask(task.label);
+        std::string total = "00:00:00:00";
+        std::string recent = "00:00:00:00";
         if (tp) {
-            // Total Time
-            std::string total = formatDuration(tp->getTotalDurationSeconds());
-            mvwprintw(topWin, y++, 4, "Total: %s", total.c_str());
-
-            // Active Time (recent)
-            std::string recent = "00:00:00:00";
+            total = formatDuration(tp->getTotalDurationSeconds());
             if (tp->currentlyRunning.has_value()) {
                 double recentSecs = std::chrono::duration<double>(
                     std::chrono::system_clock::now() - tp->currentlyRunning.value()
                 ).count();
                 recent = formatDuration(recentSecs);
             }
-            mvwprintw(topWin, y++, 4, "Active: %s", recent.c_str());
-        } else {
-            y += 2;
         }
-
-        y++; // spacing between tasks
+        wattron(topWin, COLOR_PAIR(task.colorPairId));
+        mvwprintw(topWin, y++, 2, "%-40s Total: %s   Active: %s", task.label.c_str(), total.c_str(), recent.c_str());
+        wattroff(topWin, COLOR_PAIR(task.colorPairId));
     }
 
     wrefresh(topWin);
@@ -291,6 +335,7 @@ bool parseNewTask(const std::string& input) {
         }
     }
     tasks.push_back(Task{label, fg, bg, colorPairCounter++});
+    tasksTimer.AddTask(label);  // <-- Register task for timing
     return true;
 }
 
@@ -350,6 +395,9 @@ void updateBottomPanel(WINDOW* bottomWin) {
         } else {
             mvwprintw(bottomWin, 3, 2, "No tasks available");
         }
+    } else if (currentMode == UIMode::VisualizationMenu) {
+        mvwprintw(bottomWin, 1, 2, "[Visualization Panel]");
+        mvwprintw(bottomWin, 2, 2, "This will show task graphs / data.");
     }
 
     wrefresh(bottomWin);
@@ -360,10 +408,22 @@ int main(int argc, char* argv[]) {
     initscr();
     start_color();
     use_default_colors();
+    bool customColorsEnabled = false;
+    if (can_change_color() && COLORS >= 256) {
+        // You're good to define custom RGB colors
+        customColorsEnabled = true;
+    }
+    if (customColorsEnabled) {
+        init_color(CUSTOM_COLOR_START,     1000, 462, 149); 
+        init_color(CUSTOM_COLOR_START + 1, 960, 427, 20); 
+        init_color(CUSTOM_COLOR_START + 2, 1000, 545, 258);  
+    }
+
+    start_color();
+    use_default_colors();
     cbreak();             // Disable line buffering
     noecho();             // Don’t echo typed chars
     keypad(stdscr, TRUE); // Enable arrow keys and function keys
-    timeout(1000); // waits 1 second max between redraws
     curs_set(1);          // Show cursor
 
     if (COLORS >= 16) {
@@ -382,6 +442,9 @@ int main(int argc, char* argv[]) {
 
     WINDOW* topWin = newwin(topHeight, width, 0, 0);
     WINDOW* bottomWin = newwin(bottomHeight, width, topHeight, 0);
+    wtimeout(bottomWin, 1000); // waits 1 second max between redraws
+    keypad(bottomWin, TRUE);
+    wtimeout(bottomWin, 1000);
 
     box(topWin, 0, 0);
     box(bottomWin, 0, 0);
@@ -405,16 +468,65 @@ int main(int argc, char* argv[]) {
             redrawTop(topWin);
             continue;
         }
-        if (ch == 27) { // ESC key toggles menu
-            if (currentMode == UIMode::InputMenu) {
-                currentMode = UIMode::TaskOperationMenu;
-            } else {
-                currentMode = UIMode::InputMenu;
+        if (currentMode == UIMode::CommandPalette) {
+            if (ch == '\n') {
+                if (!filteredPaletteOptions.empty()) {
+                    const std::string& selected = filteredPaletteOptions[paletteSelectedIndex];
+                    if (selected == "Input Mode") currentMode = UIMode::InputMenu;
+                    else if (selected == "Selection") currentMode = UIMode::TaskOperationMenu;
+                    else if (selected == "Visualization") currentMode = UIMode::VisualizationMenu;
+                    
+                    
+                    werase(topWin);
+                    werase(bottomWin);
+                    wrefresh(topWin);
+                    wrefresh(bottomWin);
+
+                    if (selected == "Input Mode") {
+                        currentMode = UIMode::InputMenu;
+                        updateBottomPanel(bottomWin);
+                    } else if (selected == "Selection") {
+                        currentMode = UIMode::TaskOperationMenu;
+                        updateBottomPanel(bottomWin);
+                    } else if (selected == "Visualization") {
+                        currentMode = UIMode::VisualizationMenu;
+                        // Add a similar update call here for your visualization panel
+                    }
+                    redrawTop(topWin);  // Redraw the top panel if it's relevant to the new mode
+                }
+                continue;
+            } else if (ch == KEY_UP) {
+                paletteSelectedIndex = (paletteSelectedIndex - 1 + filteredPaletteOptions.size()) % filteredPaletteOptions.size();
+            } else if (ch == KEY_DOWN) {
+                paletteSelectedIndex = (paletteSelectedIndex + 1) % filteredPaletteOptions.size();
+            } else if (isprint(ch)) {
+                paletteInputBuffer.push_back((char)ch);
+            } else if (ch == KEY_BACKSPACE || ch == 127) {
+                if (!paletteInputBuffer.empty()) paletteInputBuffer.pop_back();
             }
-            input.clear();
-            updateBottomPanel(bottomWin);
+
+            filteredPaletteOptions.clear();
+            for (const auto& opt : paletteOptions) {
+                if (fuzzyMatch(opt, paletteInputBuffer)) {
+                    filteredPaletteOptions.push_back(opt);
+                }
+            }
+            if (paletteSelectedIndex >= (int)filteredPaletteOptions.size()) paletteSelectedIndex = 0;
+
+            drawCommandPalette(stdscr);
             continue;
         }
+        if (ch == 27) {  // ESC key
+            if (currentMode != UIMode::CommandPalette) {
+                currentMode = UIMode::CommandPalette;
+                paletteSelectedIndex = 0;
+                paletteInputBuffer.clear();
+            } else {
+                currentMode = UIMode::InputMenu; // fallback
+            }
+            continue;
+        }
+        
 
         // 🟩 Insert this here:
         if (currentMode == UIMode::InputMenu) {
@@ -480,4 +592,11 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-
+/**
+ * Tasks:
+ *     - Create task formatting in a way - name, total, active.
+ *     - Create scroll of the tasks
+ *     - Create Full Screen Visualization of the time (in C#, Custom Data Format)
+ *     - Add Lines Of Code metric
+ *     - 
+ */
