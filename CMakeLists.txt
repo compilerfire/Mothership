@@ -1,6 +1,6 @@
 
 cmake_minimum_required(VERSION 3.10)
-project(Disciplined)
+project(Mothership)
 
 find_package(Curses REQUIRED)
 find_package(CURL REQUIRED)
@@ -17,8 +17,8 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/sources)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_executable(Disciplined ${SOURCE_FILES})
+add_executable(Mothership ${SOURCE_FILES})
 
-target_link_libraries(Disciplined PRIVATE CURL::libcurl)
-target_include_directories(Disciplined PRIVATE ${CURSES_INCLUDE_DIR})
-target_link_libraries(Disciplined PRIVATE ${CURSES_LIBRARIES} CURL::libcurl)
+target_link_libraries(Mothership PRIVATE CURL::libcurl)
+target_include_directories(Mothership PRIVATE ${CURSES_INCLUDE_DIR})
+target_link_libraries(Mothership PRIVATE ${CURSES_LIBRARIES} CURL::libcurl)

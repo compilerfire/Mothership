@@ -1,5 +1,5 @@
 
-# Disciplined
+# Mothership
 ## Introduction
 Disciplined is a designed software that allows to time-control, organize tasks, measure time spent on tasks, organize the system of work, among others. I develop it for myself - because I want to organize myself as well, alongside the purpose of having a portfolio element. Disciplined is run on console (command prompt; terminal) and is using ***ncurses*** as a UI engine - run on the console. It also connects to a website where you can measure your productivity, stored in a disk and able to be shown in clear diagrams.
 
