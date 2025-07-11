@@ -1,5 +1,11 @@
 {
     "files.associations": {
-        "string": "cpp"
+        "string": "cpp",
+        "vector": "cpp",
+        "ctime": "cpp",
+        "chrono": "cpp",
+        "unordered_map": "cpp",
+        "iostream": "cpp",
+        "cstdlib": "cpp"
     }
 }

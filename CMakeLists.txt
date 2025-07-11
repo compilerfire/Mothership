@@ -2,7 +2,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(Mothership)
 
-find_package(Curses REQUIRED)
 find_package(CURL REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -21,4 +20,4 @@ add_executable(Mothership ${SOURCE_FILES})
 
 target_link_libraries(Mothership PRIVATE CURL::libcurl)
 target_include_directories(Mothership PRIVATE ${CURSES_INCLUDE_DIR})
-target_link_libraries(Mothership PRIVATE ${CURSES_LIBRARIES} CURL::libcurl)
+target_link_libraries(Mothership PRIVATE ncurses CURL::libcurl)
